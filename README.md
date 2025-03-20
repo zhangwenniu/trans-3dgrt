@@ -54,6 +54,24 @@ To mitigate this limitation, we also propose 3DGUT, which enables support for di
 - For good performance with 3DGRT, we recommend using an NVIDIA GPU with Ray Tracing (RT) cores.
 - Currently, only Linux environments are supported by the included install script (Windows support coming soon!)
 
+<details> 
+<summary> NOTE: gcc versions >11 (expand for details)</summary>
+
+Currently the codebase requires gcc <= 11.  If your machine uses the compiler gcc-12 or newer (i.e., in Ubuntu 24.04), you may need to install and use gcc-11. 
+
+First, install gcc 11:
+```sh
+sudo apt-get install gcc-11 g++-11
+```
+
+Then run the with-gcc-11 version of the install script, which
+```sh
+chmod +x install_env_with_gcc11.sh
+./install_env.sh 3dgrut WITH_GCC11
+```
+</details>
+</br>
+
 To set up the environment using conda, first clone the repository and run `./install_env.sh` script as:
 
 ```bash
@@ -63,6 +81,7 @@ cd 3dgrut
 # You can install each components step by step following install_env.sh
 chmod +x install_env.sh
 ./install_env.sh 3dgrut
+conda activate 3dgrut
 ```
 
 ## 💻 2. Train 3DGRT or 3DGUT scenes
