@@ -54,6 +54,38 @@ To mitigate this limitation, we also propose 3DGUT, which enables support for di
 - For good performance with 3DGRT, we recommend using an NVIDIA GPU with Ray Tracing (RT) cores.
 - Currently, only Linux environments are supported by the included install script (Windows support coming soon!)
 
+<details> 
+<summary> NOTE: gcc versions >11 (expand for details)</summary>
+
+Currently the codebase requires gcc <= 11.  If your machine uses the compiler gcc-12 or newer (i.e., in Ubuntu 24.04), you may need to install and use gcc-11. 
+
+Install gcc 11:
+```sh
+sudo apt-get install gcc-11 g++-11
+```
+
+Set gcc 11 as the compiler:
+```sh
+# For a single shell session
+export CC=/usr/bin/gcc-11 CXX=/usr/bin/g++-11
+```
+
+```sh
+# To persist this choice when you activate/deactivate the conda environment
+# Run this after creating and activating the environment below, via `install_env.sh`
+# You'll need to deactivate/reactivate to take effect
+mkdir -p $CONDA_PREFIX/etc/conda/activate.d
+mkdir -p $CONDA_PREFIX/etc/conda/deactivate.d
+echo 'export CC=/usr/bin/gcc-11' > $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
+echo 'export CXX=/usr/bin/g++-11' >> $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
+echo 'unset CC' > $CONDA_PREFIX/etc/conda/deactivate.d/env_vars.sh
+echo 'unset CXX' >> $CONDA_PREFIX/etc/conda/deactivate.d/env_vars.sh
+chmod +x $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
+chmod +x $CONDA_PREFIX/etc/conda/deactivate.d/env_vars.sh
+```
+</details>
+</br>
+
 To set up the environment using conda, first clone the repository and run `./install_env.sh` script as:
 
 ```bash
