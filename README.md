@@ -64,9 +64,8 @@ First, install gcc 11:
 sudo apt-get install gcc-11 g++-11
 ```
 
-Then run the with-gcc-11 version of the install script, which
+Then run the install script with the optional `WITH_GCC11` flag, which additionally configures the conda environment to use gcc-11:
 ```sh
-chmod +x install_env_with_gcc11.sh
 ./install_env.sh 3dgrut WITH_GCC11
 ```
 </details>
