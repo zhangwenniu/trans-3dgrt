@@ -59,29 +59,15 @@ To mitigate this limitation, we also propose 3DGUT, which enables support for di
 
 Currently the codebase requires gcc <= 11.  If your machine uses the compiler gcc-12 or newer (i.e., in Ubuntu 24.04), you may need to install and use gcc-11. 
 
-Install gcc 11:
+First, install gcc 11:
 ```sh
 sudo apt-get install gcc-11 g++-11
 ```
 
-Set gcc 11 as the compiler:
+Then run the with-gcc-11 version of the install script, which
 ```sh
-# For a single shell session
-export CC=/usr/bin/gcc-11 CXX=/usr/bin/g++-11
-```
-
-```sh
-# To persist this choice when you activate/deactivate the conda environment
-# Run this after creating and activating the environment below, via `install_env.sh`
-# You'll need to deactivate/reactivate to take effect
-mkdir -p $CONDA_PREFIX/etc/conda/activate.d
-mkdir -p $CONDA_PREFIX/etc/conda/deactivate.d
-echo 'export CC=/usr/bin/gcc-11' > $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
-echo 'export CXX=/usr/bin/g++-11' >> $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
-echo 'unset CC' > $CONDA_PREFIX/etc/conda/deactivate.d/env_vars.sh
-echo 'unset CXX' >> $CONDA_PREFIX/etc/conda/deactivate.d/env_vars.sh
-chmod +x $CONDA_PREFIX/etc/conda/activate.d/env_vars.sh
-chmod +x $CONDA_PREFIX/etc/conda/deactivate.d/env_vars.sh
+chmod +x install_env_with_gcc11.sh
+./install_env.sh 3dgrut WITH_GCC11
 ```
 </details>
 </br>
@@ -95,6 +81,7 @@ cd 3dgrut
 # You can install each components step by step following install_env.sh
 chmod +x install_env.sh
 ./install_env.sh 3dgrut
+conda activate 3dgrut
 ```
 
 ## 💻 2. Train 3DGRT or 3DGUT scenes
