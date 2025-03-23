@@ -83,6 +83,23 @@ chmod +x install_env.sh
 conda activate 3dgrut
 ```
 
+### Running with Docker
+
+Build the docker image:
+```bash
+git clone --recursive https://github.com/nv-tlabs/3dgrut.git
+cd 3dgrut
+docker build . -t 3dgrut
+````
+
+Run it:
+```bash
+xhost +local:root
+docker run -v --rm -it --gpus=all --net=host --ipc=host -v $PWD:/workspace --runtime=nvidia -e DISPLAY 3dgrut
+```
+> [!NOTE]
+> Remember to set DISPLAY environment variable if you are running on a remote server from command line.
+
 ## 💻 2. Train 3DGRT or 3DGUT scenes
 
 We provide different configurations for training using 3DGRT and 3DGUT models on common benchmark datasets. 
@@ -127,7 +144,7 @@ python train.py --config-name apps/nerf_synthetic_3dgut.yaml path=data/nerf_synt
 python train.py --config-name apps/nerf_synthetic_3dgut.yaml path=data/nerf_synthetic/lego with_gui=True test_last=False export_ingp.enabled=False resume=runs/lego/ckpt_last.pt 
 ```
 > [!NOTE]
-> Remember to set DISPLAY environment variable if you are running on a remote server
+> Remember to set DISPLAY environment variable if you are running on a remote server from command line.
 
 On start up, you might see a black screen, but you can use the GUI to navigate to correct camera views:
 <img src="assets/train_gui_initial.jpg" height="400"/> 
