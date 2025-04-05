@@ -394,6 +394,7 @@ class MixtureOfGaussians(torch.nn.Module):
 
         self.background.load_state_dict(checkpoint["background"])
         if setup_optimizer:
+            logger.info("init_from_checkpoint: setup_optimizer")
             self.set_optimizable_parameters()
             self.setup_optimizer(state_dict=checkpoint["optimizer"])
         self.validate_fields()
@@ -509,6 +510,13 @@ class MixtureOfGaussians(torch.nn.Module):
             self.scale.requires_grad = False
         if not self.conf.model.optimize_position:
             self.positions.requires_grad = False
+        logger.info(f"in set_optimizable_parameters") 
+        logger.info(f"self.density.requires_grad = {self.density.requires_grad}")
+        logger.info(f"self.features_albedo.requires_grad = {self.features_albedo.requires_grad}")
+        logger.info(f"self.features_specular.requires_grad = {self.features_specular.requires_grad}")
+        logger.info(f"self.rotation.requires_grad = {self.rotation.requires_grad}")
+        logger.info(f"self.scale.requires_grad = {self.scale.requires_grad}")
+        logger.info(f"self.positions.requires_grad = {self.positions.requires_grad}")
 
     def update_optimizable_parameters(self, optimizable_tensors: dict[str, torch.Tensor]):
         for name, value in optimizable_tensors.items():

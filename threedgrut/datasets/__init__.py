@@ -14,7 +14,8 @@
 # limitations under the License.
 
 from .dataset_nerf import NeRFDataset
-from .dataset_colmap import ColmapDataset
+from .dataset_nerf_with_mask import NeRFDatasetWithMask
+from .dataset_colmap_revised import ColmapDataset
 from .dataset_scannetpp import ScannetppDataset
 
 
@@ -32,6 +33,20 @@ def make(name: str, config, ray_jitter):
                 config.path,
                 split="val",
                 return_alphas=False,
+                bg_color=config.model.background.color,
+            )
+        case "nerf_with_mask":
+            train_dataset = NeRFDatasetWithMask(
+                config.path,
+                split="train",
+                return_masks=True,
+                bg_color=config.model.background.color,
+                ray_jitter=ray_jitter,
+            )
+            val_dataset = NeRFDatasetWithMask(
+                config.path,
+                split="validation",
+                return_masks=True,
                 bg_color=config.model.background.color,
             )
         case "colmap":
@@ -58,7 +73,7 @@ def make(name: str, config, ray_jitter):
             )
         case _:
             raise ValueError(
-                f'Unsupported dataset type: {config.dataset.type}. Choose between: ["colmap", "nerf", "scannetpp"].'
+                f'Unsupported dataset type: {config.dataset.type}. Choose between: ["colmap", "nerf", "nerf_with_mask", "scannetpp"].'
             )
 
     return train_dataset, val_dataset

@@ -474,7 +474,9 @@ __device__ inline void processHitBwd(
     float3 radianceGrad,
     float integratedDepth,
     float& depth,
-    float depthGrad) {
+    float depthGrad,
+    float3* rayOriginGrad = nullptr,
+    float3* rayDirectionGrad = nullptr) {
     float3 particlePosition;
     float3 gscl;
     float33 particleInvRotation;
@@ -491,31 +493,60 @@ __device__ inline void processHitBwd(
     }
 
     // project ray in the gaussian
+    // giscl = Gaussian Inverse Scale，高斯粒子的逆尺度向量
     const float3 giscl   = make_float3(1 / gscl.x, 1 / gscl.y, 1 / gscl.z);
+    // gposc = Gaussian Position Center，射线原点到高斯粒子中心的向量
     const float3 gposc   = (rayOrigin - particlePosition);
+    // gposcr = Gaussian Position Center Rotated，旋转后的射线原点到高斯粒子中心的向量
     const float3 gposcr  = (gposc * particleInvRotation);
+    // gro = Gaussian Ray Origin，高斯粒子本地坐标系中的射线原点
     const float3 gro     = giscl * gposcr;
+    // rayDirR = Ray Direction Rotated，旋转后的射线方向
     const float3 rayDirR = rayDirection * particleInvRotation;
+    // grdu = Gaussian Ray Direction Unscaled，高斯粒子本地坐标系中未归一化的射线方向
     const float3 grdu    = giscl * rayDirR;
+    // grd = Gaussian Ray Direction，高斯粒子本地坐标系中归一化的射线方向
     const float3 grd     = safe_normalize(grdu);
-    const float3 gcrod   = SurfelPrimitive ? gro + grd * -gro.z / grd.z : cross(grd, gro);
+    // gcrod = Gaussian Cross Ray Origin Direction，计算射线与高斯粒子中心的距离向量
+    // 对于体积粒子：使用射线方向与射线原点的叉积
+    // 对于表面粒子：计算射线与表面的交点位置
+    const float3 gcrod   = SurfelPrimitive ? gro + grd * -gro.z / grd.z : cross(grd, gro); // 表示射线与高斯粒子中心的平方距离
+    // grayDist = Gaussian ray Distance，射线与高斯粒子中心的平方距离
     const float grayDist = dot(gcrod, gcrod);
 
+    
+    // gres = Gaussian Response，高斯核函数对该距离的响应值    
     const float gres   = particleResponse<ParticleKernelDegree>(grayDist);
+    // galpha = Gaussian Alpha，高斯粒子在该点的不透明度
     const float galpha = fminf(0.99f, gres * particleDensity);
 
     if ((gres > minParticleKernelDensity) && (galpha > minParticleAlpha)) {
         ParticleDensity& particleDensityGrad = particleDensityGradPtr[particleIdx];
 
+        // grdd = Gaussian Ray Direction Displacement，射线方向上的位移量
         const float3 grdd   = grd * (SurfelPrimitive ? -gro.z / grd.z : dot(grd, -1 * gro));
+        // grds = Gaussian Ray Direction Scaled，尺度缩放后的射线方向位移
         const float3 grds   = gscl * grdd;
+        // gsqdist = Gaussian Squared Distance，平方距离
         const float gsqdist = dot(grds, grds);
+        // gdist = Gaussian Distance，距离值
         const float gdist   = sqrtf(gsqdist);
 
         const float weight = galpha * transmittance;
 
         const float nextTransmit = (1 - galpha) * transmittance;
-
+        // prevTrm 是 "previous transmittance"（之前的透射率）的缩写。在高斯粒子渲染的上下文中，它表示光线到达当前粒子之前累积的透明度。
+        // 具体来说：
+        // transmittance 变量表示射线在当前位置的累积透明度
+        // 当射线穿过场景中的多个高斯粒子时，每次遇到一个粒子，透明度都会被更新
+        // transmittance *= (1 - galpha)，即透明度会乘以 (1 - 当前粒子的不透明度)
+        // 在注释中的公式里：
+        // hitT = accumulatedHitT + galpha * prevTrm * gdist + (1-galpha) * prevTrm * residualHitT
+        // prevTrm 就是当前处理的粒子之前的累积透明度值
+        // galpha * prevTrm 是当前粒子的权重贡献
+        // (1-galpha) * prevTrm 是穿过当前粒子后的剩余透明度
+        // 这个透明度值非常重要，因为它决定了每个粒子对最终图像的贡献程度。透明度越高（越接近1），表示之前遇到的粒子越透明，当前粒子的贡献就越大；透明度越低，表示之前的粒子已经阻挡了大部分光线，当前粒子的贡献就越小。
+        // 这是体积渲染中的关键概念，用于实现半透明物体的正确混合和深度感知。
         // ---> hitT = accumulatedHitT + galpha * prevTrm * gdist + (1-galpha) * prevTrm * residualHitT
         depth += weight * gdist;
         const float residualHitT =
@@ -706,6 +737,42 @@ __device__ inline void processHitBwd(
         atomicAdd(&particleDensityGrad.quaternion.y, grotGrdPoscr.y + grotGrdRayDirR.y);
         atomicAdd(&particleDensityGrad.quaternion.z, grotGrdPoscr.z + grotGrdRayDirR.z);
         atomicAdd(&particleDensityGrad.quaternion.w, grotGrdPoscr.w + grotGrdRayDirR.w);
+
+        // 计算Loss对射线原点和方向的梯度
+        // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+        // rayOrigin梯度计算
+        // ---> gposc = rayOrigin - particlePosition
+        // ===> d_gposc / d_rayOrigin = 1
+        // 所以 rayOriginGrad = gposcGrd
+        
+        // 创建局部变量存储梯度，并输出到指针（如果提供了的话）
+        float3 localRayOriginGrad = gposcGrd;
+
+        // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+        // rayDirection梯度计算
+        // ---> rayDirR = rayDirection * particleInvRotation
+        // ===> d_rayDirR / d_rayDirection = particleInvRotation
+        float3 localRayDirectionGrad = matmul_bw_vec(particleInvRotation, rayDirRGrd);
+
+        // 从球谐光照计算中获取方向梯度
+        float3 rayDirGradFromSpH = make_float3(0.f, 0.f, 0.f);
+        if(weight > 0.0f) {
+            rayDirGradFromSpH = grad * weight * radianceGrad;
+            localRayDirectionGrad -= rayDirGradFromSpH;
+        }
+
+        // 累加梯度，而不是直接赋值
+        if (rayOriginGrad != nullptr) {
+            rayOriginGrad->x += localRayOriginGrad.x;
+            rayOriginGrad->y += localRayOriginGrad.y;
+            rayOriginGrad->z += localRayOriginGrad.z;
+        }
+
+        if (rayDirectionGrad != nullptr) {
+            rayDirectionGrad->x += localRayDirectionGrad.x;
+            rayDirectionGrad->y += localRayDirectionGrad.y;
+            rayDirectionGrad->z += localRayDirectionGrad.z;
+        }
 
         transmittance = nextTransmit;
     }

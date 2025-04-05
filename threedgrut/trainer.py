@@ -41,7 +41,7 @@ from threedgrut.utils.gui import GUI
 from threedgrut.utils.logger import logger
 from threedgrut.utils.timer import CudaTimer
 from threedgrut.utils.misc import jet_map, create_summary_writer
-
+import cv2
 
 class Trainer3DGRUT:
     """Trainer for paper: "3D Gaussian Ray Tracing: Fast Tracing of Particle Scenes" """
@@ -480,7 +480,6 @@ class Trainer3DGRUT:
 
         loss = np.mean(metrics["losses"]["total_loss"])
         writer.add_scalar("loss/total/val", loss, global_step)
-        writer.add_scalar("train_loss_patches/total_loss", loss, global_step)  # hack to compare with 3DGS
         if self.conf.loss.use_l1:
             l1_loss = np.mean(metrics["losses"]["l1_loss"])
             writer.add_scalar("loss/l1/val", l1_loss, global_step)
@@ -549,6 +548,10 @@ class Trainer3DGRUT:
                     )
 
             writer.add_scalar("num_particles/train", self.model.num_gaussians, self.global_step)
+
+            # # NOTE: hack to easily compare with 3DGS
+            # writer.add_scalar("train_loss_patches/total_loss", loss, global_step)
+            # writer.add_scalar("gaussians/count", self.model.num_gaussians, self.global_step)
 
         logger.log_progress(
             task_name="Training",
@@ -672,6 +675,41 @@ class Trainer3DGRUT:
                 profilers["inference"].start()
                 outputs = model(gpu_batch, train=True, frame_id=global_step)
                 profilers["inference"].end()
+                
+            if self.global_step % 1000 == 0:
+                # 存储预测的图片和gt图片
+                img_pred = outputs["pred_rgb"][0].detach().cpu().numpy()
+                img_gt = gpu_batch.rgb_gt[0].detach().cpu().numpy()
+                output_dir = os.path.join(self.tracking.output_dir, "training_images")
+                os.makedirs(output_dir, exist_ok=True)
+                
+                print("img_pred.shape:", img_pred.shape)
+                print("img_gt.shape:", img_gt.shape)
+                print("img_pred.max:", img_pred.max())
+                print("img_pred.min:", img_pred.min())
+                print("img_gt.max:", img_gt.max())
+                print("img_gt.min:", img_gt.min())
+                
+                # 将图片转换为uint8类型
+                img_pred = (img_pred * 255).astype(np.uint8)
+                img_gt = (img_gt * 255).astype(np.uint8)
+                # mask = ((gpu_batch.mask[0] < 0.5).detach().cpu().numpy() * 255).astype(np.uint8)
+                
+                # 将RGB格式转换为BGR格式（OpenCV使用BGR格式）
+                img_pred_bgr = img_pred[:, :, [2, 1, 0]]
+                img_gt_bgr = img_gt[:, :, [2, 1, 0]]
+                # img_mask_bgr = np.repeat(mask, 3, axis=2)
+                # masked_img_gt = (img_gt_bgr * (img_mask_bgr / 255.0)).astype(np.uint8)
+                
+                concated_image = np.concatenate([img_pred_bgr, img_gt_bgr], axis=1)
+                # concated_img = np.concatenate([
+                #     np.concatenate([img_pred_bgr, img_gt_bgr], axis=1),
+                #     np.concatenate([masked_img_gt, img_mask_bgr], axis=1)
+                # ], axis=0)
+                cv2.imwrite(os.path.join(output_dir, f"img_pred_{self.global_step}.png"), concated_image)
+
+
+
 
             # Compute the losses of a single batch
             with torch.cuda.nvtx.range(f"train_{global_step}_loss"):
@@ -686,6 +724,7 @@ class Trainer3DGRUT:
                 profilers["backward"].start()
                 batch_losses["total_loss"].backward()
                 profilers["backward"].end()
+                logger.info(f"self.model.positions.grad: {self.model.positions.grad}")
 
             # Update densification buffer:
             if global_step < conf.model.densify.end_iteration:

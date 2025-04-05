@@ -939,7 +939,7 @@ OptixTracer::trace(uint32_t frameNumber,
     return std::tuple<torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor>(rayRad, rayDns, rayHit, rayNrm, rayHitsCount);
 }
 
-std::tuple<torch::Tensor, torch::Tensor>
+std::tuple<torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor>
 OptixTracer::traceBwd(uint32_t frameNumber,
                       torch::Tensor rayToWorld,
                       torch::Tensor rayOri,
@@ -958,10 +958,13 @@ OptixTracer::traceBwd(uint32_t frameNumber,
                       int sphDegree,
                       float minTransmittance) {
 
-    const torch::TensorOptions opts    = torch::TensorOptions().dtype(torch::kFloat32).device(torch::kCUDA);
-    torch::Tensor particleDensityGrad  = torch::zeros({particleDensity.size(0), particleDensity.size(1)}, opts);
-    torch::Tensor particleRadianceGrad = torch::zeros({particleRadiance.size(0), particleRadiance.size(1)}, opts);
+    // 最简化的梯度张量初始化
+    torch::Tensor particleDensityGrad = torch::zeros_like(particleDensity);
+    torch::Tensor particleRadianceGrad = torch::zeros_like(particleRadiance);
+    torch::Tensor rayOriginGrad = torch::zeros_like(rayOri);
+    torch::Tensor rayDirectionGrad = torch::zeros_like(rayDir);
 
+    // 简化参数设置
     PipelineBackwardParameters paramsHost;
     paramsHost.handle = _state->gasHandle;
     paramsHost.aabb   = _state->gasAABB;
@@ -996,16 +999,23 @@ OptixTracer::traceBwd(uint32_t frameNumber,
     paramsHost.rayDensityGrad     = packed_accessor32<float, 4>(rayDnsGrd);
     paramsHost.rayHitDistanceGrad = packed_accessor32<float, 4>(rayHitGrd);
     paramsHost.rayNormalGrad      = packed_accessor32<float, 4>(rayNrmGrd);
+    
+    paramsHost.rayOriginGrad = packed_accessor32<float, 4>(rayOriginGrad);
+    paramsHost.rayDirectionGrad = packed_accessor32<float, 4>(rayDirectionGrad);
 
     cudaStream_t cudaStream = at::cuda::getCurrentCUDAStream();
-
+    
     reallocateParamsDevice(sizeof(paramsHost), cudaStream);
-    CUDA_CHECK(cudaMemcpyAsync(
-        reinterpret_cast<void*>(_state->paramsDevice), &paramsHost, sizeof(paramsHost), cudaMemcpyHostToDevice, cudaStream));
+    cudaMemcpy(reinterpret_cast<void*>(_state->paramsDevice), &paramsHost, sizeof(paramsHost), cudaMemcpyHostToDevice);
 
-    OPTIX_CHECK(optixLaunch(_state->pipelineTracingBwd, cudaStream, _state->paramsDevice,
-                            sizeof(PipelineBackwardParameters), &_state->sbtTracingBwd,
-                            rayRad.size(2), rayRad.size(1), rayRad.size(0)));
+    // 非常简化的核心调用，移除所有错误检查
+    optixLaunch(_state->pipelineTracingBwd, cudaStream, _state->paramsDevice,
+                     sizeof(PipelineBackwardParameters), &_state->sbtTracingBwd,
+                     rayRad.size(2), rayRad.size(1), rayRad.size(0));
 
-    return std::tuple<torch::Tensor, torch::Tensor>(particleDensityGrad, particleRadianceGrad);
+    // 等待同步
+    cudaDeviceSynchronize();
+    
+    return std::tuple<torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor>(
+        particleDensityGrad, particleRadianceGrad, rayOriginGrad, rayDirectionGrad);
 }

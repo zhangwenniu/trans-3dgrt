@@ -151,7 +151,7 @@ public:
                   int sphDegree,
                   float minTransmittance);
 
-    std::tuple<torch::Tensor, torch::Tensor>
+    std::tuple<torch::Tensor, torch::Tensor, torch::Tensor, torch::Tensor>
     virtual traceBwd(uint32_t frameNumber,
                      torch::Tensor rayToWorld,
                      torch::Tensor rayOri,
