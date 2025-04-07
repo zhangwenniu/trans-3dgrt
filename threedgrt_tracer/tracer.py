@@ -144,14 +144,14 @@ class Tracer:
             mog_pos_grd, mog_dns_grd, mog_rot_grd, mog_scl_grd, _ = torch.split(
                 particle_density_grd, [3, 1, 4, 3, 1], dim=1
             )
-            logger.info("确实通过了Tracer的_Autograd.backward")
-            logger.info(f"ray_ori_grd.shape: {ray_ori_grd.shape}, max: {ray_ori_grd.max().item()}, min: {ray_ori_grd.min().item()}, std: {ray_ori_grd.std().item()}, mean: {ray_ori_grd.mean().item()}")
-            logger.info(f"ray_dir_grd.shape: {ray_dir_grd.shape}, max: {ray_dir_grd.max().item()}, min: {ray_dir_grd.min().item()}, std: {ray_dir_grd.std().item()}, mean: {ray_dir_grd.mean().item()}")
-            logger.info(f"mog_pos_grd.shape: {mog_pos_grd.shape}, max: {mog_pos_grd.max().item()}, min: {mog_pos_grd.min().item()}, std: {mog_pos_grd.std().item()}, mean: {mog_pos_grd.mean().item()}")
-            logger.info(f"mog_rot_grd.shape: {mog_rot_grd.shape}, max: {mog_rot_grd.max().item()}, min: {mog_rot_grd.min().item()}, std: {mog_rot_grd.std().item()}, mean: {mog_rot_grd.mean().item()}")
-            logger.info(f"mog_scl_grd.shape: {mog_scl_grd.shape}, max: {mog_scl_grd.max().item()}, min: {mog_scl_grd.min().item()}, std: {mog_scl_grd.std().item()}, mean: {mog_scl_grd.mean().item()}")
-            logger.info(f"mog_dns_grd.shape: {mog_dns_grd.shape}, max: {mog_dns_grd.max().item()}, min: {mog_dns_grd.min().item()}, std: {mog_dns_grd.std().item()}, mean: {mog_dns_grd.mean().item()}")
-            logger.info(f"mog_sph_grd.shape: {mog_sph_grd.shape}, max: {mog_sph_grd.max().item()}, min: {mog_sph_grd.min().item()}, std: {mog_sph_grd.std().item()}, mean: {mog_sph_grd.mean().item()}")
+            logger.debug("确实通过了Tracer的_Autograd.backward")
+            logger.debug(f"ray_ori_grd.shape: {ray_ori_grd.shape}, max: {ray_ori_grd.max().item()}, min: {ray_ori_grd.min().item()}, std: {ray_ori_grd.std().item()}, mean: {ray_ori_grd.mean().item()}")
+            logger.debug(f"ray_dir_grd.shape: {ray_dir_grd.shape}, max: {ray_dir_grd.max().item()}, min: {ray_dir_grd.min().item()}, std: {ray_dir_grd.std().item()}, mean: {ray_dir_grd.mean().item()}")
+            logger.debug(f"mog_pos_grd.shape: {mog_pos_grd.shape}, max: {mog_pos_grd.max().item()}, min: {mog_pos_grd.min().item()}, std: {mog_pos_grd.std().item()}, mean: {mog_pos_grd.mean().item()}")
+            logger.debug(f"mog_rot_grd.shape: {mog_rot_grd.shape}, max: {mog_rot_grd.max().item()}, min: {mog_rot_grd.min().item()}, std: {mog_rot_grd.std().item()}, mean: {mog_rot_grd.mean().item()}")
+            logger.debug(f"mog_scl_grd.shape: {mog_scl_grd.shape}, max: {mog_scl_grd.max().item()}, min: {mog_scl_grd.min().item()}, std: {mog_scl_grd.std().item()}, mean: {mog_scl_grd.mean().item()}")
+            logger.debug(f"mog_dns_grd.shape: {mog_dns_grd.shape}, max: {mog_dns_grd.max().item()}, min: {mog_dns_grd.min().item()}, std: {mog_dns_grd.std().item()}, mean: {mog_dns_grd.mean().item()}")
+            logger.debug(f"mog_sph_grd.shape: {mog_sph_grd.shape}, max: {mog_sph_grd.max().item()}, min: {mog_sph_grd.min().item()}, std: {mog_sph_grd.std().item()}, mean: {mog_sph_grd.mean().item()}")
             
             return (
                 None,

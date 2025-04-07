@@ -21,11 +21,11 @@ import torch
 """
 Demo usage:
 
-python train_finetune.py --checkpoint /workspace/runs/eiko_ball_masked_expanded_3dgrt/eiko_ball_masked_expanded-2703_050608/ckpt_last.pt --out-dir /workspace/outputs/eval/finetune
+CUDA_VISIBLE_DEVICES=1 python train_finetune.py --checkpoint /workspace/runs/eiko_ball_masked_expanded_3dgrt/eiko_ball_masked_expanded-2703_050608/ckpt_last.pt --out-dir /workspace/outputs/eval/finetune/v1.4
 """
 if __name__ == "__main__":
     multiprocessing.set_start_method('spawn', force=True)
-    
+    torch.set_default_tensor_type('torch.cuda.FloatTensor')
     # 启用异常检测以帮助识别梯度问题
     torch.autograd.set_detect_anomaly(True)
     print("已启用自动梯度异常检测，这会降低训练速度但有助于检测梯度问题")
@@ -42,18 +42,7 @@ if __name__ == "__main__":
                         out_dir=args.out_dir,
                )
     trainer.set_log_level("INFO")
-    
-    # 如果运行了50次迭代后没有梯度问题，关闭异常检测以提高性能
-    # 除非用户使用了--debug-grad参数
-    def disable_anomaly_detection():
-        if not args.debug_grad:
-            print("前50次迭代未发现梯度问题，正在关闭异常检测以提高性能")
-            torch.autograd.set_detect_anomaly(False)
-    
-    # 注册回调函数到trainer
-    if hasattr(trainer, 'register_callback'):
-        trainer.register_callback(50, disable_anomaly_detection)
-    
+
     trainer.run_training()
     # trainer.run_render()
 

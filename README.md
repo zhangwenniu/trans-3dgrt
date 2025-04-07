@@ -100,6 +100,38 @@ docker run -v --rm -it --gpus=all --net=host --ipc=host -v $PWD:/workspace --run
 > [!NOTE]
 > Remember to set DISPLAY environment variable if you are running on a remote server from command line.
 
+
+```bash
+# docker进入之后发现有一些环境没有安装，需要安装
+# 更新apt
+apt-get update
+# 安装tmux
+apt-get install tmux
+# docker+tmux不能顺利显示中文
+# 首先在Docker里面执行下面的内容。
+LANG=C.utf8 
+source /etc/profile 
+conda activate 3dgrut
+
+# 接下来，执行tmux的时候，使用-u参数
+tmux -u attach -t 0
+# 或者创建tmux的时候，使用-u参数
+tmux -u new-session -s 3dgrut
+
+# 还有一些NeuS里面用到的模块需要安装
+pip install trimesh
+pip install pymcubes
+pip install icecream
+pip install pyhocon
+
+# 训练
+python train_finetune.py --checkpoint /workspace/runs/eiko_ball_masked_expanded_3dgrt/eiko_ball_masked_expanded-2703_050608/ckpt_last.pt --out-dir /workspace/outputs/eval/finetune
+
+# 提取训练的结果到3dgs.ply文件
+python train.py --config-name apps/colmap_3dgrt.yaml path=data/trans/eiko_ball_masked_expanded out_dir=runs experiment_name=eiko_ball_expanded resume=./runs/eiko_ball_masked_expanded_3dgrt/eiko_ball_masked_expanded-2703_050608/ckpt_last.pt n_iterations=0 export_ply.enabled=true test_last=false export_ingp.enabled=false num_workers=1
+```
+
+
 ## 💻 2. Train 3DGRT or 3DGUT scenes
 
 We provide different configurations for training using 3DGRT and 3DGUT models on common benchmark datasets. 

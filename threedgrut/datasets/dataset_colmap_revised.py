@@ -56,7 +56,8 @@ class ColmapDataset(Dataset, BoundedMultiViewDataset, DatasetVisualization):
         
         # 添加mask文件夹路径
         self.mask_folder = "mask"  # 可以考虑将其作为参数传入
-        
+        self.mask_expanded_folder = "mask_expanded"
+
         # GPU cache of processed camera intrinsics
         self.intrinsics = {}
 
@@ -77,6 +78,9 @@ class ColmapDataset(Dataset, BoundedMultiViewDataset, DatasetVisualization):
         
         self.mask_data = self.mask_data[indices]
         assert self.mask_data.dtype == np.uint8, "Mask data must be of type uint8"
+        
+        self.mask_expanded_data = self.mask_expanded_data[indices]
+        assert self.mask_expanded_data.dtype == np.uint8, "Mask expanded data must be of type uint8"
 
         self.camera_centers = self.camera_centers[indices]
         self.center, self.length_scale, self.scene_bbox = self.compute_spatial_extents()
@@ -202,6 +206,7 @@ class ColmapDataset(Dataset, BoundedMultiViewDataset, DatasetVisualization):
         self.poses = []
         self.image_data = []
         self.mask_data = []  # 添加mask数据列表
+        self.mask_expanded_data = [] # 添加mask_expanded数据列表
 
         cam_centers = []
         for extr in logger.track(self.cam_extrinsics, description=f"Load Dataset ({self.split})", color="salmon1"):
@@ -241,7 +246,23 @@ class ColmapDataset(Dataset, BoundedMultiViewDataset, DatasetVisualization):
                 logger.warning(f"Mask file not found: {mask_path}, using default mask")
                 mask_data = np.zeros((self.image_h, self.image_w), dtype=np.uint8)
             
+            # 加载mask_expanded数据
+            mask_expanded_path = os.path.join(self.path, self.mask_expanded_folder, image_basename)
+            if os.path.exists(mask_path):
+                mask_expanded_data = np.asarray(Image.open(mask_expanded_path))
+                # 如果mask是彩色图像，将其转换为灰度图
+                if len(mask_expanded_data.shape) == 3 and mask_expanded_data.shape[2] == 3:
+                    mask_expanded_data = np.mean(mask_expanded_data, axis=2).astype(np.uint8)
+                # 确保mask是二值图像（0或255）
+                mask_expanded_data = (mask_expanded_data > 127).astype(np.uint8) * 255
+            else:
+                # 如果没有找到对应的mask文件，创建全1的mask
+                logger.warning(f"Mask_expanded file not found: {mask_expanded_path}, using default mask")
+                mask_expanded_data = np.zeros((self.image_h, self.image_w), dtype=np.uint8)
+                
+            
             self.mask_data.append(mask_data)
+            self.mask_expanded_data.append(mask_expanded_data)
 
         self.camera_centers = np.array(cam_centers)
         _, diagonal = get_center_and_diag(self.camera_centers)
@@ -250,6 +271,7 @@ class ColmapDataset(Dataset, BoundedMultiViewDataset, DatasetVisualization):
         self.poses = np.stack(self.poses)
         self.image_data = np.stack(self.image_data)
         self.mask_data = np.stack(self.mask_data)
+        self.mask_expanded_data = np.stack(self.mask_expanded_data)
         
     
     def near_far_from_sphere(self, rays_o, rays_d):
@@ -332,10 +354,12 @@ class ColmapDataset(Dataset, BoundedMultiViewDataset, DatasetVisualization):
     def __getitem__(self, idx) -> dict:
         out_shape = (1, self.image_h, self.image_w, 3)
         mask_shape = (1, self.image_h, self.image_w, 1)
+        mask_expanded_shape = (1, self.image_h, self.image_w, 1)
         
         return {
             "data": torch.tensor(self.image_data[idx], dtype=torch.float32).reshape(out_shape),
             "mask": torch.tensor(self.mask_data[idx][..., None], dtype=torch.float32).reshape(mask_shape),
+            "mask_expanded": torch.tensor(self.mask_expanded_data[idx][..., None], dtype=torch.float32).reshape(mask_shape),
             "pose": torch.tensor(self.poses[idx], dtype=torch.float32).unsqueeze(0),
             "intr": self.get_intrinsics_idx(idx),
         }
@@ -345,6 +369,7 @@ class ColmapDataset(Dataset, BoundedMultiViewDataset, DatasetVisualization):
 
         data = batch["data"][0].to(self.device, non_blocking=True) / 255.0
         mask = batch["mask"][0].to(self.device, non_blocking=True) / 255.0  # 转换为0-1范围
+        mask_expanded = batch["mask_expanded"][0].to(self.device, non_blocking=True) / 255.0
         pose = batch["pose"][0].to(self.device, non_blocking=True)
         intr = batch["intr"][0].item()
         assert data.dtype == torch.float32
@@ -355,6 +380,7 @@ class ColmapDataset(Dataset, BoundedMultiViewDataset, DatasetVisualization):
         sample = {
             "rgb_gt": data,
             "mask": mask,  # 添加mask到sample中
+            "mask_expanded": mask_expanded,
             "rays_ori": rays_ori,
             "rays_dir": rays_dir,
             "T_to_world": pose,
