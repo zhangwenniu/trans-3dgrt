@@ -132,38 +132,49 @@ extern "C" __global__ void __raygen__rg() {
     float3 rayOriginGrad = make_float3(0.f);
     float3 rayDirectionGrad = make_float3(0.f);
 
-    // 简化版光线跟踪
     RayPayload rayPayload;
-    trace(rayPayload, rayOrigin, rayDirection, startT + epsT, endT);
-    
-    // 只处理第一次命中
-    if (rayPayload[0].particleId != RayHit::InvalidParticleId && rayPayload[0].particleId < 0xFFFFFFFF) {
-        processHitBwd<PipelineParameters::ParticleKernelDegree, PipelineParameters::SurfelPrimitive>(
-            rayOrigin,
-            rayDirection,
-            rayPayload[0].particleId,
-            params.particleDensity,
-            params.particleDensityGrad,
-            params.particleRadiance,
-            params.particleRadianceGrad,
-            params.hitMinGaussianResponse,
-            params.alphaMinThreshold,
-            params.minTransmittance,
-            params.sphDegree,
-            rayIntegratedTransmittance,
-            rayTransmittance,
-            rayTransmittanceGrad,
-            rayIntegratedRadiance,
-            rayRadiance,
-            rayRadianceGrad,
-            rayIntegratedHitDistance,
-            rayHitDistance,
-            rayHitDistanceGrad,
-            &rayOriginGrad,
-            &rayDirectionGrad);
+
+    while (startT < endT) {
+        trace(rayPayload, rayOrigin, rayDirection, startT + epsT, endT);
+        if (rayPayload[0].particleId == RayHit::InvalidParticleId) {
+            break;
+        }
+
+#pragma unroll
+        for (int i = 0; i < PipelineParameters::MaxNumHitPerTrace; i++) {
+            const RayHit rayHit = rayPayload[i];
+
+            if (rayHit.particleId != RayHit::InvalidParticleId) {
+                processHitBwd<PipelineParameters::ParticleKernelDegree, PipelineParameters::SurfelPrimitive>(
+                    rayOrigin,
+                    rayDirection,
+                    rayHit.particleId,
+                    params.particleDensity,
+                    params.particleDensityGrad,
+                    params.particleRadiance,
+                    params.particleRadianceGrad,
+                    params.hitMinGaussianResponse,
+                    params.alphaMinThreshold,
+                    params.minTransmittance,
+                    params.sphDegree,
+                    rayIntegratedTransmittance,
+                    rayTransmittance,
+                    rayTransmittanceGrad,
+                    rayIntegratedRadiance,
+                    rayRadiance,
+                    rayRadianceGrad,
+                    rayIntegratedHitDistance,
+                    rayHitDistance,
+                    rayHitDistanceGrad,
+                    &rayOriginGrad,      // 新增：传入射线原点梯度
+                    &rayDirectionGrad);  // 新增：传入射线方向梯度
+
+                startT = fmaxf(startT, rayHit.distance);
+            }
+        }
     }
-    
-    // 直接写入梯度，基本边界检查
+
+    // 循环结束后写入梯度
     if (params.rayOriginGrad.size(0) > 0 && 
         idx.x < params.rayOriginGrad.size(2) && 
         idx.y < params.rayOriginGrad.size(1) && 

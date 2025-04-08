@@ -331,7 +331,7 @@ class Trainer:
                 normal_smoothness_loss = torch.mean(diff_norm)  # 可以通过配置调整权重
             else:
                 normal_smoothness_loss = torch.tensor(0.0, device=rays_o.device)
-        
+
         loss = silhouette_loss * 0.1 + eikonal_loss * 0.1 + normal_smoothness_loss * 0.005
         
         return loss
@@ -345,7 +345,6 @@ class Trainer:
         # shape: (-1, 1)
         return near, far
         
-
     def generate_train_batch_as_tnsr(self, gpu_batch, renderer):
         """使用RayTracing类实现光线折射渲染，并进行随机采样与法线平滑度计算。
         
@@ -431,45 +430,45 @@ class Trainer:
             batch_tracing_mask[selected_indicies_final] = True
             reflect_mask[selected_indicies_final] = True
         
-        # --- 计算法线平滑度损失 ---
-        normal_smoothness_loss = torch.tensor(0.0, device=masked_rays_o.device)
+        # # --- 计算法线平滑度损失 ---
+        # normal_smoothness_loss = torch.tensor(0.0, device=masked_rays_o.device)
         
-        # 收集所有表面点
-        surface_points_list = []
+        # # 收集所有表面点
+        # surface_points_list = []
 
-        # 添加第一次相交的表面点（如果有）
-        if len(first_surface_points) > 0:
-            surface_points_list.append(first_surface_points)
+        # # 添加第一次相交的表面点（如果有）
+        # if len(first_surface_points) > 0:
+        #     surface_points_list.append(first_surface_points)
 
-        # 添加第二次相交的表面点（如果有）
-        if len(second_surface_points) > 0:
-            surface_points_list.append(second_surface_points)
+        # # 添加第二次相交的表面点（如果有）
+        # if len(second_surface_points) > 0:
+        #     surface_points_list.append(second_surface_points)
 
-        # 只要找到了任意表面点就计算法线平滑度
-        if len(surface_points_list) > 0:
-            with torch.enable_grad():
-                # 合并所有表面点
-                surface_points = torch.cat(surface_points_list, dim=0)
+        # # 只要找到了任意表面点就计算法线平滑度
+        # if len(surface_points_list) > 0:
+        #     with torch.enable_grad():
+        #         # 合并所有表面点
+        #         surface_points = torch.cat(surface_points_list, dim=0)
                 
-                # # 在表面点附近生成随机扰动点
-                # surface_points_neig = surface_points + (torch.rand_like(surface_points) - 0.5) * 0.01
+        #         # # 在表面点附近生成随机扰动点
+        #         # surface_points_neig = surface_points + (torch.rand_like(surface_points) - 0.5) * 0.01
                 
-                # # 将所有点合并为一个批次
-                # pp = torch.cat([surface_points, surface_points_neig], dim=0)
+        #         # # 将所有点合并为一个批次
+        #         # pp = torch.cat([surface_points, surface_points_neig], dim=0)
                 
-                # # 计算梯度（法线方向）
-                # surface_grad = renderer.sdf_network.gradient(pp)
-                # surface_points_normal = torch.nn.functional.normalize(surface_grad, p=2, dim=-1)
+        #         # # 计算梯度（法线方向）
+        #         # surface_grad = renderer.sdf_network.gradient(pp)
+        #         # surface_points_normal = torch.nn.functional.normalize(surface_grad, p=2, dim=-1)
                 
-                # # 计算法线平滑度损失
-                # N = surface_points_normal.shape[0] // 2
-                # diff_norm = torch.norm(surface_points_normal[:N] - surface_points_normal[N:], dim=-1)
-                # normal_smoothness_loss = torch.mean(diff_norm)
+        #         # # 计算法线平滑度损失
+        #         # N = surface_points_normal.shape[0] // 2
+        #         # diff_norm = torch.norm(surface_points_normal[:N] - surface_points_normal[N:], dim=-1)
+        #         # normal_smoothness_loss = torch.mean(diff_norm)
                 
-                normal_smoothness_loss = self.compute_smoothness_loss(surface_points, renderer)
+        #         normal_smoothness_loss = self.compute_smoothness_loss(surface_points, renderer)
                 
-                # 记录日志
-                logger.debug(f"法线平滑度损失: {normal_smoothness_loss.item():.6f}, 表面点数量: {surface_points.shape[0]}")
+        #         # 记录日志
+        #         logger.debug(f"法线平滑度损失: {normal_smoothness_loss.item():.6f}, 表面点数量: {surface_points.shape[0]}")
 
         # 设置valid_mask为成功进行两次折射的射线
         if batch_tracing_mask.sum() > 0:
@@ -484,7 +483,7 @@ class Trainer:
             final_rays_d = final_rays_d.view(1, 1, -1, 3)
             final_rgb_gt = final_rgb_gt.view(1, 1, -1, 3)
         else:
-            return None, torch.tensor(0.0, device=masked_rays_o.device)
+            return None
         
         # 输出统计信息
         num_traced = batch_tracing_mask.sum().item()
@@ -499,7 +498,7 @@ class Trainer:
         gpu_batch.rays_dir = final_rays_d
         gpu_batch.rgb_gt = final_rgb_gt
         
-        return gpu_batch, normal_smoothness_loss
+        return gpu_batch
     
     def run_training(self):
         # 计算总迭代次数用于进度显示
@@ -526,11 +525,11 @@ class Trainer:
                 loss = torch.tensor(0.0, device='cuda')
                 
                 # 计算silhouette loss以及eikonal_loss
-                silhouette_losses = self.train_silhouette(gpu_batch)
-                loss += silhouette_losses
+                # silhouette_losses = self.train_silhouette(gpu_batch)
+                # loss += silhouette_losses
                 
                 # 应用折射光线追踪 - 现在返回gpu_batch和法线平滑度损失
-                gpu_batch, normal_smoothness_loss = self.generate_train_batch_as_tnsr(gpu_batch, self.renderer)
+                gpu_batch = self.generate_train_batch_as_tnsr(gpu_batch, self.renderer)
                 
                 # 检查是否有符合条件的射线（经过两次折射）
                 if gpu_batch is not None:
@@ -542,7 +541,7 @@ class Trainer:
                     l1_loss = torch.abs(pred_rgb_full - rgb_gt_full).mean()
                     
                     # 添加Eikonal损失和法线平滑度损失
-                    loss = silhouette_losses + l1_loss + normal_smoothness_loss * 0.005  # 调整权重系数
+                    loss += l1_loss  # 调整权重系数
                 else:
                     # 如果当前批次没有符合条件的射线，记录并跳过
                     epoch_progress.set_postfix({'status': 'skipped - no valid rays'})
@@ -562,6 +561,7 @@ class Trainer:
                     )      
 
 
+                self.model.optimizer.zero_grad()
                 self.optimizer.zero_grad()
                 loss.backward()
                 self.optimizer.step()
@@ -1057,91 +1057,3 @@ class Trainer:
             logger.error(f"保存可视化结果时出错: {str(e)}")
             import traceback
             logger.error(traceback.format_exc())
-
-    def compute_smoothness_loss(self, surface_points, renderer, n_samples=16):
-        """计算平滑度损失
-        
-        Args:
-            surface_points: 表面点 [N, 3]
-            renderer: 包含SDF网络的渲染器
-            n_samples: 每个表面点周围采样的点数
-        """
-        with torch.enable_grad():
-            # 计算表面点的法线（梯度）
-            surface_normals = renderer.sdf_network.gradient(surface_points)
-            surface_normals = F.normalize(surface_normals, p=2, dim=-1)
-            
-            # 在表面点周围随机采样点
-            # 使用正态分布在法线方向和切向方向采样
-            batch_size = surface_points.shape[0]
-            
-            # 创建局部坐标系（使用法线作为一个轴）
-            # 找到与法线正交的两个向量作为切向基
-            random_vec = torch.randn_like(surface_normals)
-            tangent = F.normalize(torch.cross(surface_normals, random_vec), dim=-1)
-            bitangent = torch.cross(surface_normals, tangent)
-            
-            # 在局部空间采样点
-            # 使用较小的标准差在法线方向采样，较大的标准差在切向采样
-            sigma_normal = 0.01  # 法线方向的标准差
-            sigma_tangent = 0.05  # 切向的标准差
-            
-            local_samples = []
-            for i in range(n_samples):
-                # 生成局部空间的随机偏移
-                normal_offset = torch.randn(batch_size, 1, device=surface_points.device) * sigma_normal
-                tangent_offset = torch.randn(batch_size, 1, device=surface_points.device) * sigma_tangent
-                bitangent_offset = torch.randn(batch_size, 1, device=surface_points.device) * sigma_tangent
-                
-                # 将偏移转换到世界空间
-                offset = (surface_normals * normal_offset + 
-                         tangent * tangent_offset + 
-                         bitangent * bitangent_offset)
-                
-                # 生成采样点
-                sample_points = surface_points + offset
-                local_samples.append(sample_points)
-            
-            # 将所有采样点堆叠在一起
-            local_samples = torch.stack(local_samples, dim=1)  # [N, n_samples, 3]
-            local_samples = local_samples.reshape(-1, 3)  # [N*n_samples, 3]
-            
-            # 计算所有点的SDF值和梯度
-            sdf_values = renderer.sdf_network.sdf(local_samples)
-            sample_normals = renderer.sdf_network.gradient(local_samples)
-            sample_normals = F.normalize(sample_normals, p=2, dim=-1)
-            
-            # 重塑回批次形式
-            sdf_values = sdf_values.reshape(batch_size, n_samples)
-            sample_normals = sample_normals.reshape(batch_size, n_samples, 3)
-            local_samples = local_samples.reshape(batch_size, n_samples, 3)
-            
-            # 计算密度平滑损失 Ld
-            # 计算每个采样点到表面的归一化向量
-            directions = local_samples - surface_points.unsqueeze(1)  # [N, n_samples, 3]
-            distances = torch.norm(directions, dim=-1, keepdim=True)  # [N, n_samples, 1]
-            directions = directions / (distances + 1e-8)
-            
-            # 计算与法线的点积
-            normal_alignment = torch.abs(torch.sum(
-                directions * surface_normals.unsqueeze(1), dim=-1))  # [N, n_samples]
-            
-            # 使用SDF值作为密度的代理
-            density_weights = torch.exp(-torch.abs(sdf_values))
-            Ld = torch.mean(density_weights * normal_alignment)
-            
-            # 计算法线平滑损失 Ln
-            # 计算采样点法线与表面法线的角度
-            normal_dot = torch.sum(
-                sample_normals * surface_normals.unsqueeze(1), dim=-1)  # [N, n_samples]
-            normal_angle = (1 - normal_dot) / 2
-            
-            # 同样使用密度权重
-            Ln = torch.mean(density_weights * normal_angle)
-            
-            # 总损失
-            lambda_d = 0.1  # 密度平滑权重
-            lambda_n = 0.1  # 法线平滑权重
-            smoothness_loss = lambda_d * Ld + lambda_n * Ln
-            
-            return smoothness_loss

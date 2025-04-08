@@ -763,15 +763,15 @@ __device__ inline void processHitBwd(
 
         // 累加梯度，而不是直接赋值
         if (rayOriginGrad != nullptr) {
-            rayOriginGrad->x += localRayOriginGrad.x;
-            rayOriginGrad->y += localRayOriginGrad.y;
-            rayOriginGrad->z += localRayOriginGrad.z;
+            rayOriginGrad->x -= localRayOriginGrad.x;
+            rayOriginGrad->y -= localRayOriginGrad.y;
+            rayOriginGrad->z -= localRayOriginGrad.z;
         }
 
         if (rayDirectionGrad != nullptr) {
-            rayDirectionGrad->x += localRayDirectionGrad.x;
-            rayDirectionGrad->y += localRayDirectionGrad.y;
-            rayDirectionGrad->z += localRayDirectionGrad.z;
+            rayDirectionGrad->x -= localRayDirectionGrad.x;
+            rayDirectionGrad->y -= localRayDirectionGrad.y;
+            rayDirectionGrad->z -= localRayDirectionGrad.z;
         }
 
         transmittance = nextTransmit;

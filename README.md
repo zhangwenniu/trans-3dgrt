@@ -123,9 +123,14 @@ pip install trimesh
 pip install pymcubes
 pip install icecream
 pip install pyhocon
+pip install matplotlib
+pip install gpustat
 
 # 训练
 python train_finetune.py --checkpoint /workspace/runs/eiko_ball_masked_expanded_3dgrt/eiko_ball_masked_expanded-2703_050608/ckpt_last.pt --out-dir /workspace/outputs/eval/finetune
+
+# 微调
+CUDA_VISIBLE_DEVICES=1 python train_finetune.py --checkpoint /workspace/runs/eiko_ball_masked_expanded_3dgrt/eiko_ball_masked_expanded-2703_050608/ckpt_last.pt --out-dir /workspace/outputs/eval/finetune/v1.5
 
 # 提取训练的结果到3dgs.ply文件
 python train.py --config-name apps/colmap_3dgrt.yaml path=data/trans/eiko_ball_masked_expanded out_dir=runs experiment_name=eiko_ball_expanded resume=./runs/eiko_ball_masked_expanded_3dgrt/eiko_ball_masked_expanded-2703_050608/ckpt_last.pt n_iterations=0 export_ply.enabled=true test_last=false export_ingp.enabled=false num_workers=1

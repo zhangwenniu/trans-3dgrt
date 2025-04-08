@@ -60,6 +60,20 @@ class NeRFDatasetWithMask(Dataset, BoundedMultiViewDataset, DatasetVisualization
         assert self.colors.dtype == np.uint8, "RGB image must be of type uint8"
         if self.return_masks and hasattr(self, 'masks'):
             assert self.masks.dtype == np.uint8, "Mask image must be of type uint8"
+            
+        self.scale_mat = self.compute_scale_mat()
+        
+    @torch.no_grad()
+    def compute_scale_mat(self):
+        """
+        return: 
+            4x4 缩放矩阵, [0, 0] = [1, 1] = [2, 2] = length_scale, [3, 3] = 1.0
+            [:3, 3] = 场景中心在原世界坐标系下的坐标
+        """
+        # 如果需要将场景放在一个单位球内，也就是NeuS的假设
+        scale_mat = torch.diag(torch.tensor([self.length_scale, self.length_scale, self.length_scale, 1.0], dtype=torch.float32))
+        scale_mat[:3, 3] = self.center.float()  # 确保是float32
+        return scale_mat
 
     def read_intrinsics(self):
         transform_file = os.path.join(self.root_dir, self.split, "transforms.json")
