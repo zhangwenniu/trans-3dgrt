@@ -96,8 +96,9 @@ class RefractTracer(nn.Module):
             logger.debug("Computing first reflection")
             reflection_direction_1 = self.reflection(in_dir, normals)
             
-            hit_rays_o = first_surface_points 
-            hit_rays_d = refraction_direction_1            
+            hit_rays_o = first_surface_points.detach()
+            hit_rays_d = refraction_direction_1.detach()
+              
             
             # second intersection # 
             logger.debug("Computing second intersection")

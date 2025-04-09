@@ -592,7 +592,7 @@ __device__ inline void processHitBwd(
             &sphCoefficients[0]);
         const float3 grad = radianceFromSpHBwd(sphEvalDegree, &sphCoefficients[0], rayDirection, weight, radianceGrad, (float3*)&particleRadianceGradPtr[particleIdx * SPH_MAX_NUM_COEFFS * 3]);
 
-        // >>> rayRadiance = accumulatedRayRad + weigth * rayRad + (1-galpha)*transmit * residualRayRad
+        // >>> rayRadiance = accumulatedRayRad + weight * rayRad + (1-galpha)*transmit * residualRayRad
         const float3 rayRad = weight * grad;
         radiance += rayRad;
         const float3 residualRayRad = maxf3((nextTransmit <= minTransmittance ? make_float3(0) : (integratedRadiance - radiance) / nextTransmit),
@@ -746,34 +746,48 @@ __device__ inline void processHitBwd(
         // 所以 rayOriginGrad = gposcGrd
         
         // 创建局部变量存储梯度，并输出到指针（如果提供了的话）
-        float3 localRayOriginGrad = gposcGrd;
+        // float3 localRayOriginGrad = gposcGrd;
 
-        // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
-        // rayDirection梯度计算
-        // ---> rayDirR = rayDirection * particleInvRotation
-        // ===> d_rayDirR / d_rayDirection = particleInvRotation
-        float3 localRayDirectionGrad = matmul_bw_vec(particleInvRotation, rayDirRGrd);
+        // // >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
+        // // rayDirection梯度计算
+        // // ---> rayDirR = rayDirection * particleInvRotation
+        // // ===> d_rayDirR / d_rayDirection = particleInvRotation
+        // float3 localRayDirectionGrad = matmul_bw_vec(particleInvRotation, rayDirRGrd);
 
-        // 从球谐光照计算中获取方向梯度
-        float3 rayDirGradFromSpH = make_float3(0.f, 0.f, 0.f);
-        if(weight > 0.0f) {
-            rayDirGradFromSpH = grad * weight * radianceGrad;
-            localRayDirectionGrad -= rayDirGradFromSpH;
-        }
+        // // 从球谐光照计算中获取方向梯度
+        // float3 rayDirGradFromSpH = make_float3(0.f, 0.f, 0.f);
+        // if(weight > 0.0f) {
+        //     rayDirGradFromSpH = grad * weight * radianceGrad;
+        //     localRayDirectionGrad -= rayDirGradFromSpH;
+        // }
 
-        // 累加梯度，而不是直接赋值
+        // // 累加梯度，而不是直接赋值
+        // if (rayOriginGrad != nullptr) {
+        //     rayOriginGrad->x -= localRayOriginGrad.x;
+        //     rayOriginGrad->y -= localRayOriginGrad.y;
+        //     rayOriginGrad->z -= localRayOriginGrad.z;
+        // }
+
+        // if (rayDirectionGrad != nullptr) {
+        //     rayDirectionGrad->x -= localRayDirectionGrad.x;
+        //     rayDirectionGrad->y -= localRayDirectionGrad.y;
+        //     rayDirectionGrad->z -= localRayDirectionGrad.z;
+        // }
+
+        // transmittance = nextTransmit;
+
+        // 另一种简化近似的梯度计算方式
         if (rayOriginGrad != nullptr) {
-            rayOriginGrad->x -= localRayOriginGrad.x;
-            rayOriginGrad->y -= localRayOriginGrad.y;
-            rayOriginGrad->z -= localRayOriginGrad.z;
+            rayOriginGrad->x += rayMoGPosGrd.x * weight;
+            rayOriginGrad->y += rayMoGPosGrd.y * weight;
+            rayOriginGrad->z += rayMoGPosGrd.z * weight;
         }
 
         if (rayDirectionGrad != nullptr) {
-            rayDirectionGrad->x -= localRayDirectionGrad.x;
-            rayDirectionGrad->y -= localRayDirectionGrad.y;
-            rayDirectionGrad->z -= localRayDirectionGrad.z;
+            rayDirectionGrad->x += rayMoGPosGrd.x * weight * depth;
+            rayDirectionGrad->y += rayMoGPosGrd.y * weight * depth;
+            rayDirectionGrad->z += rayMoGPosGrd.z * weight * depth;
         }
 
-        transmittance = nextTransmit;
     }
 }

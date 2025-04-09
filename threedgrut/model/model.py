@@ -327,6 +327,58 @@ class MixtureOfGaussians(torch.nn.Module):
         if set_optimizable_parameters:
             self.set_optimizable_parameters()
         self.validate_fields()
+        
+    def generate_cube_point_cloud(self, num_gaussians=100_000, device="cuda"):
+        """生成立方体表面的随机点云
+        
+        Args:
+            num_gaussians: 需要生成的总高斯点数
+            device: torch设备，默认"cuda"
+        
+        Returns:
+            xyz: torch.Tensor，形状为(num_gaussians, 3)的点坐标
+        """
+        # 计算每个面的点数（向上取整）
+        num_pts_per_face = int(np.ceil(num_gaussians / 6))
+        # 总点数（可能会超过num_gaussians）
+        total_pts = num_pts_per_face * 6
+        
+        cube_size = 5.0  # 立方体边长的一半
+        
+        # 创建空张量
+        xyz = torch.zeros((total_pts, 3), dtype=torch.float32, device=device)
+        
+        # 为六个面生成随机点
+        for i, (axis, sign) in enumerate([
+            (0, 1),   # x = +5 面
+            (0, -1),  # x = -5 面
+            (1, 1),   # y = +5 面
+            (1, -1),  # y = -5 面
+            (2, 1),   # z = +5 面
+            (2, -1),  # z = -5 面
+        ]):
+            start_idx = i * num_pts_per_face
+            end_idx = (i + 1) * num_pts_per_face
+            
+            # 生成这个面上的随机点
+            face_points = (
+                torch.rand((num_pts_per_face, 2), dtype=torch.float32, device=device) * (2 * cube_size) - cube_size
+            )
+            
+            # 将点放置在对应的面上
+            if axis == 0:  # x轴面
+                xyz[start_idx:end_idx, 0] = cube_size * sign  # x坐标固定
+                xyz[start_idx:end_idx, 1:] = face_points  # y和z坐标随机
+            elif axis == 1:  # y轴面
+                xyz[start_idx:end_idx, 0] = face_points[:, 0]  # x坐标随机
+                xyz[start_idx:end_idx, 1] = cube_size * sign  # y坐标固定
+                xyz[start_idx:end_idx, 2] = face_points[:, 1]  # z坐标随机
+            else:  # z轴面
+                xyz[start_idx:end_idx, :2] = face_points  # x和y坐标随机
+                xyz[start_idx:end_idx, 2] = cube_size * sign  # z坐标固定
+        
+        # 只返回需要的点数
+        return xyz[:num_gaussians]
 
     @torch.no_grad()
     def init_from_random_point_cloud(
@@ -342,9 +394,14 @@ class MixtureOfGaussians(torch.nn.Module):
 
         # We create random points inside the bounds of the synthetic Blender scenes
         # xyz in [-1.5, 1.5] -> standard NeRF convention, people often scale with 0.33 to get it to [-0.5, 0.5]
-        fused_point_cloud = (
-            torch.rand((num_gaussians, 3), dtype=dtype, device=self.device) * (xyz_max - xyz_min) + xyz_min
-        )
+        generate_from_cube = False
+        if generate_from_cube:
+            fused_point_cloud = (
+                torch.rand((num_gaussians, 3), dtype=dtype, device=self.device) * (xyz_max - xyz_min) + xyz_min
+            )
+        else:
+            fused_point_cloud = self.generate_cube_point_cloud(num_gaussians=num_gaussians, device=self.device)
+        
         # sh albedo in [0, 0.0039]
         fused_color = torch.rand((num_gaussians, 3), dtype=dtype, device=self.device) / 255.0
 
